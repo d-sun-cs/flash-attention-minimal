@@ -9,8 +9,8 @@ project(flashattn LANGUAGES CXX CUDA)
 # set(Torch_DIR "/opt/conda/lib/python3.11/site-packages/torch/share/cmake/Torch")
 
 # 或者用 CMAKE_PREFIX_PATH
-# set(CMAKE_PREFIX_PATH "/opt/conda/lib/python3.11/site-packages/torch/share/cmake")
-set(CMAKE_PREFIX_PATH "/root/libtorch/share/cmake/Torch")
+set(CMAKE_PREFIX_PATH "/opt/conda/lib/python3.11/site-packages/torch/share/cmake")
+# set(CMAKE_PREFIX_PATH "/root/libtorch/share/cmake/Torch")
 
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
