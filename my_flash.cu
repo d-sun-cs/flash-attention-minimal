@@ -123,7 +123,7 @@ torch::Tensor my_forward(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     const int sram_size = (Br * d + 2 * Bc * d + Br * Bc) * sizeof(float);
     int max_sram_size;
     cudaDeviceGetAttribute(&max_sram_size, cudaDevAttrMaxSharedMemoryPerBlock, 0);
-    printf("Max shared memory: %d, requested shared memory: %d \\n", max_sram_size, sram_size);
+    printf("Max shared memory: %d, requested shared memory: %d \n", max_sram_size, sram_size);
 
     dim3 grid_dim(B, nh); // batch_size x num_heads
     dim3 block_dim(Br);   // Bc ??? threads per block

@@ -10,11 +10,11 @@ int main()
     const int seq_len = 64;
     const int head_embd = 64;
 
-    auto q = torch::randn({batch_size, n_head, seq_len, head_embd}).cuda();
-    auto k = torch::randn({batch_size, n_head, seq_len, head_embd}).cuda();
-    auto v = torch::randn({batch_size, n_head, seq_len, head_embd}).cuda();
+    auto Q = torch::randn({batch_size, n_head, seq_len, head_embd}).cuda();
+    auto K = torch::randn({batch_size, n_head, seq_len, head_embd}).cuda();
+    auto V = torch::randn({batch_size, n_head, seq_len, head_embd}).cuda();
 
-    forward(q, k, v);
+    auto O1 = forward(Q, K, V);
 
     return 0;
 }

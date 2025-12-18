@@ -35,7 +35,7 @@ add_executable(bench bench.cpp flash.cu)
 target_link_libraries(bench "${TORCH_LIBRARIES}")
 set_property(TARGET bench PROPERTY CXX_STANDARD 17)
 
-add_executable(my_bench bench.cpp my_flash.cu)
+add_executable(my_bench my_bench.cpp my_flash.cu flash.cu)
 target_link_libraries(my_bench "${TORCH_LIBRARIES}")
 set_property(TARGET my_bench PROPERTY CXX_STANDARD 17)
 
