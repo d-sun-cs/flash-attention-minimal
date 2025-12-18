@@ -13,6 +13,8 @@ __global__ void my_forward_kernel(const float *Q, const float *K, const float *V
     auto K_start = K + bid * N * d;
     auto V_start = V + bid * N * d;
     auto O_start = O + bid * N * d;
+    auto m_start = m + bid * N;
+    auto l_start = l + bid * N;
 
     extern __shared__ float smem[];
     int offset = 0;
@@ -26,9 +28,11 @@ __global__ void my_forward_kernel(const float *Q, const float *K, const float *V
     offset += KVtile;
     auto Ss = &smem[offset];
 
-    for (int i = 0; i < Tc; i++) {
+    for (auto i = 0; i < Tc; i++)
+    {
         // K, V -> smem
-        for (int j = 0; j < KVtile; j += thread_num) {
+        for (auto j = 0; j < KVtile; j += thread_num)
+        {
             // not coalesced and bank conflicts
             // Ks[tid * d + j] = K_start[i * Bc * d + tid * d + j];
             // Vs[tid * d + j] = V_start[i * Bc * d + tid * d + j];
@@ -36,28 +40,58 @@ __global__ void my_forward_kernel(const float *Q, const float *K, const float *V
             Vs[j + tid] = V_start[i * KVtile + j + tid];
         }
         __syncthreads();
-        for (int j = 0; j < Tr; j++) {
+        for (auto j = 0; j < Tr; j++)
+        {
             // Q -> smem
-            for (int k = 0; k < Qtile; k += thread_num) {
+            for (auto k = 0; k < Qtile; k += thread_num)
+            {
                 Qs[k + tid] = Q_start[j * Qtile + k + tid];
             }
             __syncthreads();
-            // compute S
-            auto row_m = -INFINITY;
-            // one Q row per thread
-            for (int l = 0; l < Bc; l++) {
-                for (int m = 0; m < d; m++) {
-                    // bank conflicts
-                    Ss[tid * Bc + l] += Qs[tid * d + m] * Ks[l * d + m];
-                }
-                Ss[tid * Bc + l] *= softmax_scale;
-                // one elem in one row
-                if (Ss[tid * Bc + l] > row_m) {
-                    row_m = Ss[tid * Bc + l];
-                }
-            }
-        }
 
+            // compute S
+            // one Q row per thread
+            auto row_m = -INFINITY; // thread priavte row max
+            for (auto x = 0; x < Bc; x++)
+            {
+                for (auto y = 0; y < d; y++)
+                {
+                    // bank conflicts
+                    Ss[tid * Bc + x] += Qs[tid * d + y] * Ks[x * d + y];
+                }
+                Ss[tid * Bc + x] *= softmax_scale;
+                // one elem in one row
+                row_m = max(row_m, Ss[tid * Bc + x]);
+            }
+
+            float row_l = 0;
+            for (auto k = 0; k < Bc; k++)
+            {
+                // caclulate P (stored in Ss)
+                Ss[tid * Bc + k] = __expf(Ss[tid * Bc + k] - row_m);
+                row_l += Ss[tid * Bc + k];
+            }
+
+            // update row max and sum
+            auto row_m_prev = m_start[j * Br + tid];
+            auto row_l_prev = l_start[j * Br + tid];
+            auto row_m_new = max(row_m, row_m_prev);
+            auto row_l_new = __expf(row_m_prev - row_m_new) * row_l_prev + __expf(row_m - row_m_new) * row_l;
+
+            // White O, l, m to HBM
+            for (auto x = 0; x < d; x++)
+            {
+                float PV = 0;
+                for (auto y = 0; y < Bc; y++)
+                {
+                    PV += Ss[tid * Bc + y] * Vs[y * d + x];
+                }
+                O_start[(j * Br + tid) * d + x] = (1 / row_l_new) * (row_l_prev * __expf(row_m_prev - row_m_new) * O_start[(j * Br + tid) * d + x] + __expf(row_m - row_m_new) * PV);
+            }
+            m_start[j * Br + tid] = row_m_new;
+            l_start[j * Br + tid] = row_l_new;
+        }
+        __syncthreads();
     }
 }
 
