@@ -18,7 +18,11 @@ int main()
     auto O1 = forward(Q, K, V);
     auto O2 = my_forward(Q, K, V);
 
-    if (torch::allclose(O1, O2, 0.05, 0.05))
+    // 1. 设置阈值
+    float atol = 1e-3;
+    float rtol = 1e-6;
+
+    if (torch::allclose(O1, O2, atol, rtol))
     {
         std::cout << "O1 and O2 are equal!" << std::endl;
     }
@@ -27,9 +31,7 @@ int main()
         std::cout << "O1 and O2 are NOT equal!" << std::endl;
     }
 
-    // 1. 设置阈值
-    float atol = 5e-2;
-    float rtol = 5e-2;
+    
 
     // 2. 找到不满足条件的掩码 (逻辑：|a - b| > atol + rtol * |b|)
     auto diff = torch::abs(O1 - O2);

@@ -6,6 +6,7 @@ __global__ void my_forward_kernel(const float *Q, const float *K, const float *V
 {
     auto tid = threadIdx.x;
     auto bid = blockIdx.y * gridDim.x + blockIdx.x; // 第几张列表
+    // auto bid = blockIdx.x * gridDim.y + blockIdx.y;
     auto thread_num = blockDim.x * blockDim.y;
 
     // block start
@@ -33,20 +34,28 @@ __global__ void my_forward_kernel(const float *Q, const float *K, const float *V
         // K, V -> smem
         for (auto j = 0; j < KVtile; j += thread_num)
         {
-            // not coalesced and bank conflicts
-            // Ks[tid * d + j] = K_start[i * Bc * d + tid * d + j];
-            // Vs[tid * d + j] = V_start[i * Bc * d + tid * d + j];
             Ks[j + tid] = K_start[i * KVtile + j + tid];
             Vs[j + tid] = V_start[i * KVtile + j + tid];
         }
+        // for (auto j = 0; j < d; j++)
+        // {
+        //     // not coalesced and bank conflicts
+        //     Ks[tid * d + j] = K_start[i * KVtile + tid * d + j];
+        //     Vs[tid * d + j] = V_start[i * KVtile + tid * d + j];
+        // }
         __syncthreads();
+
         for (auto j = 0; j < Tr; j++)
         {
-            // Q -> smem
+            // Q -> smem (acctually it's not shared)
             for (auto k = 0; k < Qtile; k += thread_num)
             {
                 Qs[k + tid] = Q_start[j * Qtile + k + tid];
             }
+            // for (auto k = 0; k < d; k++)
+            // {
+            //     Qs[tid * d + k] = Q_start[j * Qtile + tid * d + k];
+            // }
             __syncthreads();
 
             // compute S
@@ -54,14 +63,18 @@ __global__ void my_forward_kernel(const float *Q, const float *K, const float *V
             auto row_m = -INFINITY; // thread priavte row max
             for (auto x = 0; x < Bc; x++)
             {
+                float sum = 0; // zero initialized
                 for (auto y = 0; y < d; y++)
                 {
                     // bank conflicts
-                    Ss[tid * Bc + x] += Qs[tid * d + y] * Ks[x * d + y];
+                    // Ss[tid * Bc + x] += Qs[tid * d + y] * Ks[x * d + y];
+                    sum += Qs[tid * d + y] * Ks[x * d + y];
                 }
-                Ss[tid * Bc + x] *= softmax_scale;
+                // Ss[tid * Bc + x] *= softmax_scale;
+                sum *= softmax_scale;
+                Ss[tid * Bc + x] = sum;
                 // one elem in one row
-                row_m = max(row_m, Ss[tid * Bc + x]);
+                row_m = max(row_m, sum);
             }
 
             float row_l = 0;

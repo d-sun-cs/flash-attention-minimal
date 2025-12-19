@@ -43,6 +43,9 @@ set_property(TARGET my_bench PROPERTY CXX_STANDARD 17)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(bench PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G>)
 endif()
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(my_bench PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G>)
+endif()
 
 
 # The following code block is suggested to be used on Windows.
